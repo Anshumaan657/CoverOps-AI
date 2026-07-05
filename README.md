@@ -2,6 +2,11 @@
 
 **AI that turns messy commercial insurance intake into underwriter-ready cases.**
 
+**Live Demo:** 
+[cover-ops-ai.vercel.app](https://cover-ops-ai.vercel.app)  
+**Repo:** 
+[github.com/Anshumaan657/CoverOps-AI](https://github.com/Anshumaan657/CoverOps-AI)
+
 CoverOps AI automates the manual parts of business insurance submissions: intake processing, document upload, risk triage, missing information detection, follow-up generation, human review, and audit logging.
 
 **Status**: Functional MVP | Fully working demo | Gemini-powered with deterministic local fallback
@@ -97,9 +102,8 @@ Use a fresh Incognito/private window for the cleanest demo.
 - Supabase persistence and real auth
 - Full PDF/document text extraction
 - Voice intake
-- Deployed live demo
 - Short walkthrough video
 
 ## License
 
-MIT
+[MIT](./LICENSE)
