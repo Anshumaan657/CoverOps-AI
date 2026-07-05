@@ -11,6 +11,8 @@ export function CaseDetailClient({ caseId }: { caseId: string }) {
   const router = useRouter();
   const [cases, setCases] = useState<InsuranceCase[]>([]);
   const caseItem = useMemo(() => cases.find((item) => item.id === caseId), [caseId, cases]);
+  const decisionTrace = useMemo(() => (caseItem ? buildDecisionTrace(caseItem) : null), [caseItem]);
+  const isDecisionLocked = caseItem?.status === "approved" || caseItem?.status === "rejected";
 
   useEffect(() => {
     setCases(getCases());
@@ -99,18 +101,26 @@ export function CaseDetailClient({ caseId }: { caseId: string }) {
 
         <div className="shell-card p-5">
           <p className="eyebrow">Human review</p>
-          <h2 className="mt-1 text-xl font-black">Decision Actions</h2>
-          <div className="mt-5 grid gap-3">
-            <button className="primary-button" onClick={() => void review("approve")} type="button">
-              Approve AI Summary
-            </button>
-            <button className="ghost-button" onClick={() => void review("request_info")} type="button">
-              Request More Info
-            </button>
-            <button className="danger-button" onClick={() => void review("reject")} type="button">
-              Reject Output
-            </button>
-          </div>
+          <h2 className="mt-1 text-xl font-black">{isDecisionLocked ? "Decision Recorded" : "Decision Actions"}</h2>
+          {isDecisionLocked ? (
+            <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4">
+              <p className="text-sm font-bold leading-6 text-muted">
+                This case is {caseItem.status}. The AI-prepared output is locked for demo review; open the audit log to inspect the human decision.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-3">
+              <button className="primary-button" onClick={() => void review("approve")} type="button">
+                Approve AI Summary
+              </button>
+              <button className="ghost-button" onClick={() => void review("request_info")} type="button">
+                Request More Info
+              </button>
+              <button className="danger-button" onClick={() => void review("reject")} type="button">
+                Reject Output
+              </button>
+            </div>
+          )}
           <button className="ghost-button mt-4 w-full" onClick={() => router.push("/audit")} type="button">
             View Decision Trace
           </button>
@@ -141,6 +151,33 @@ export function CaseDetailClient({ caseId }: { caseId: string }) {
         </Panel>
       </section>
 
+      {decisionTrace ? (
+        <section className="mt-5">
+          <Panel title="AI Decision Trace" eyebrow="Traceability">
+            <div className="grid gap-4 xl:grid-cols-[1fr_1fr_1fr]">
+              <TraceBlock title="Input Considered" items={decisionTrace.inputConsidered} />
+              <TraceBlock title="Risk Factors Found" items={decisionTrace.riskFactors} />
+              <TraceBlock title="Missing Fields" items={decisionTrace.missingFields} empty="No missing fields detected." />
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_0.8fr]">
+              <div className="rounded-lg border border-line bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-muted">Confidence Reason</p>
+                <p className="mt-2 text-sm font-semibold leading-6">{decisionTrace.confidenceReason}</p>
+              </div>
+              <div className="rounded-lg border border-line bg-white p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-muted">Processing Engine</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-opsblue">{decisionTrace.provider}</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-muted">{caseItem.confidence}% confidence</span>
+                </div>
+                <p className="mt-3 text-sm font-semibold leading-6 text-muted">{decisionTrace.providerDetail}</p>
+              </div>
+            </div>
+          </Panel>
+        </section>
+      ) : null}
+
       <section className="mt-5">
         <Panel title="Uploaded Documents" eyebrow="Inputs">
           <div className="grid gap-2 md:grid-cols-3">
@@ -152,6 +189,67 @@ export function CaseDetailClient({ caseId }: { caseId: string }) {
       </section>
     </div>
   );
+}
+
+function TraceBlock({ title, items, empty }: { title: string; items: string[]; empty?: string }) {
+  return (
+    <div className="rounded-lg border border-line bg-white p-4">
+      <p className="text-xs font-black uppercase tracking-wide text-muted">{title}</p>
+      {items.length ? (
+        <ul className="mt-3 space-y-2 text-sm font-semibold leading-6">
+          {items.map((item) => (
+            <li className="rounded-md bg-slate-50 px-3 py-2" key={item}>
+              {item}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm font-semibold text-muted">{empty || "No signals recorded."}</p>
+      )}
+    </div>
+  );
+}
+
+function buildDecisionTrace(caseItem: InsuranceCase) {
+  const usedFallback = caseItem.audit.some((event) => event.action === "Gemini unavailable");
+  const usedGemini = !usedFallback && caseItem.audit.some((event) => event.action === "AI risk analysis completed");
+
+  return {
+    inputConsidered: [
+      `${caseItem.industry} business in ${caseItem.state}`,
+      `${caseItem.employees} employees and ${currency(caseItem.annualRevenue)} annual revenue`,
+      `${caseItem.priorClaims} prior claim(s) disclosed`,
+      `${caseItem.documents.length} uploaded document signal(s)`,
+      caseItem.coverage
+    ],
+    riskFactors: riskFactorsFor(caseItem),
+    missingFields: caseItem.missingFields,
+    confidenceReason: confidenceReasonFor(caseItem),
+    provider: usedGemini ? "Gemini live analysis" : usedFallback ? "Deterministic fallback" : "Seeded demo analysis",
+    providerDetail: usedGemini
+      ? "The case was processed through the server-side Gemini route with normalized structured output."
+      : usedFallback
+        ? "Gemini was unavailable, so the server used the deterministic fallback engine and logged that event."
+        : "This seeded case was generated by the local deterministic engine for demo readiness."
+  };
+}
+
+function riskFactorsFor(caseItem: InsuranceCase) {
+  const factors: string[] = [];
+  if (["Construction", "Manufacturing"].includes(caseItem.industry)) factors.push(`${caseItem.industry} exposure increases operational risk.`);
+  if (caseItem.priorClaims > 0) factors.push(`${caseItem.priorClaims} prior claim(s) require underwriting review.`);
+  if (caseItem.employees > 40) factors.push("Employee count suggests higher payroll and workers comp exposure.");
+  if (caseItem.annualRevenue > 3000000) factors.push("Revenue size indicates a larger commercial account.");
+  if (caseItem.urgency.toLowerCase().includes("expired")) factors.push("Coverage urgency suggests a possible compliance blocker.");
+  if (!factors.length) factors.push("No major risk escalators detected from intake data.");
+  return factors;
+}
+
+function confidenceReasonFor(caseItem: InsuranceCase) {
+  const missing = caseItem.missingFields.length;
+  if (caseItem.confidence >= 90) return "High confidence because intake data is complete and uploaded document signals cover the core underwriting package.";
+  if (caseItem.confidence >= 75) return missing ? `Moderate confidence because ${missing} missing field(s) still need validation.` : "Moderate confidence because risk signals require human review despite a complete intake.";
+  return missing ? `Lower confidence because ${missing} missing field(s) reduce underwriting certainty.` : "Lower confidence because the account has higher-risk characteristics that require underwriter judgment.";
 }
 
 function Info({ label, value }: { label: string; value: string }) {

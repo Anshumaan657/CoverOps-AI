@@ -1,10 +1,12 @@
 import { AppShell } from "@/components/AppShell";
 import { CaseDetailClient } from "@/components/CaseDetailClient";
 
-export default function CasePage({ params }: { params: { id: string } }) {
+export default async function CasePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
   return (
     <AppShell>
-      <CaseDetailClient caseId={params.id} />
+      <CaseDetailClient caseId={id} />
     </AppShell>
   );
 }

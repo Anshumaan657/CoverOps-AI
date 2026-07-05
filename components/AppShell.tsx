@@ -35,7 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <p className="text-sm font-extrabold">MVP promise</p>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-300">
             <li>Intake to underwriter summary</li>
-            <li>Document extraction simulation</li>
+            <li>Document upload + extraction signals</li>
             <li>Risk triage and missing fields</li>
             <li>Human review and override</li>
             <li>Auditable decision trace</li>

@@ -1,22 +1,27 @@
 import { NextResponse } from "next/server";
 import { runGeminiIntake } from "@/lib/gemini-ai";
 import { runMockIntake } from "@/lib/mock-ai";
-import type { IntakeInput } from "@/lib/types";
+import { parseIntakeInput } from "@/lib/validation";
 
 export async function POST(request: Request) {
-  let body: IntakeInput;
+  let payload: unknown;
   try {
-    body = (await request.json()) as IntakeInput;
+    payload = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid intake payload." }, { status: 400 });
   }
 
+  const parsed = parseIntakeInput(payload);
+  if (!parsed.data) {
+    return NextResponse.json({ error: parsed.error || "Invalid intake payload." }, { status: 400 });
+  }
+
   try {
-    const generatedCase = await runGeminiIntake(body);
+    const generatedCase = await runGeminiIntake(parsed.data);
 
     return NextResponse.json({ case: generatedCase, provider: "gemini" });
   } catch (error) {
-    const fallbackCase = runMockIntake(body);
+    const fallbackCase = runMockIntake(parsed.data);
     fallbackCase.audit = [
       {
         id: `evt-${Date.now()}-fallback`,

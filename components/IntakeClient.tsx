@@ -6,16 +6,16 @@ import { getCases, saveCases } from "@/lib/local-store";
 import type { InsuranceCase, IntakeInput } from "@/lib/types";
 
 const defaults: IntakeInput = {
-  businessName: "Northstar Fabrication LLC",
-  industry: "Manufacturing",
-  state: "CA",
-  employees: 42,
-  annualRevenue: 4200000,
+  businessName: "Cedar Forge Works LLC",
+  industry: "Construction",
+  state: "TX",
+  employees: 34,
+  annualRevenue: 2800000,
   priorClaims: 1,
   coverage: "General Liability + Workers Comp",
   urgency: "Needs quote this week",
-  documents: ["business-license.pdf", "payroll-summary-2026.pdf", "loss-runs-prior-carrier.pdf"],
-  notes: "Metal fabrication shop with welding operations, delivery vehicles, and a new customer contract requiring proof of coverage. Prior claim was a minor worker injury last year."
+  documents: ["contractor-license.pdf", "payroll-summary-2026.pdf", "loss-runs-prior-carrier.pdf"],
+  notes: "Regional concrete and light commercial contractor with subcontractor crews, jobsite equipment, and a new client contract requiring proof of coverage. Prior claim was a minor worker injury last year."
 };
 
 export function IntakeClient() {
@@ -26,6 +26,12 @@ export function IntakeClient() {
 
   function update<K extends keyof IntakeInput>(key: K, value: IntakeInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateDocuments(files: FileList | null) {
+    if (!files?.length) return;
+    const documents = Array.from(files).map((file) => `${file.name} (${formatFileSize(file.size)})`);
+    update("documents", documents);
   }
 
   async function submit() {
@@ -129,14 +135,27 @@ export function IntakeClient() {
           </label>
         </div>
 
-        <label className="field-label">
+        <div className="field-label">
           Uploaded documents
-          <textarea
-            className="field-input min-h-28"
-            value={form.documents.join("\n")}
-            onChange={(event) => update("documents", event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))}
-          />
-        </label>
+          <label className="mt-2 flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-line bg-slate-50 px-5 py-6 text-center transition hover:border-opsblue hover:bg-blue-50/40">
+            <span className="text-sm font-black text-ink">Upload insurance documents</span>
+            <span className="mt-1 max-w-xl text-xs font-semibold leading-5 text-muted">PDF, CSV, XLSX, DOCX, or image files. This MVP captures file names, sizes, and document signals for AI triage; full PDF text extraction is listed in future work.</span>
+            <input
+              accept=".pdf,.csv,.xlsx,.xls,.doc,.docx,.png,.jpg,.jpeg"
+              className="sr-only"
+              multiple
+              onChange={(event) => updateDocuments(event.target.files)}
+              type="file"
+            />
+          </label>
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            {form.documents.map((document) => (
+              <div className="rounded-lg border border-line bg-white p-3 text-xs font-black text-ink" key={document}>
+                {document}
+              </div>
+            ))}
+          </div>
+        </div>
 
         <label className="field-label">
           Business notes
@@ -154,4 +173,10 @@ export function IntakeClient() {
       </form>
     </div>
   );
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
